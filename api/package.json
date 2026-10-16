@@ -1,0 +1,39 @@
+{
+  "name": "@randevu/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db": "node src/scripts/dev-db.ts",
+    "dev": "node --watch src/index.ts",
+    "migrate": "node src/scripts/migrate.ts",
+    "seed": "node src/scripts/seed.ts",
+    "start": "node src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.3",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.6",
+    "@fastify/websocket": "^11.3.4",
+    "argon2": "^0.45.1",
+    "fastify": "^5.12.7",
+    "kysely": "^0.29.6",
+    "luxon": "^3.7.2",
+    "nodemailer": "^10.1.2",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.38.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.6",
+    "@types/node": "^24.19.2",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.2",
+    "embedded-postgres": "^17.10.0-beta.17",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

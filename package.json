@@ -1,0 +1,24 @@
+{
+  "name": "randevu-platformu",
+  "private": true,
+  "description": "Çok işletmeli online randevu platformu — Fastify, PostgreSQL, React",
+  "workspaces": [
+    "api",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n db,api,web -c blue,green,magenta \"npm run db -w api\" \"npm run dev -w api\" \"npm run dev -w web\"",
+    "db": "npm run db -w api",
+    "seed": "npm run seed -w api",
+    "test": "npm test -w api",
+    "typecheck": "npm run typecheck -w api && npm run typecheck -w web",
+    "build": "npm run build -w web",
+    "start": "npm start -w api"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
