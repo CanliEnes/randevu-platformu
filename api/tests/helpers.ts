@@ -11,7 +11,7 @@ export const START_TIME = new Date('2030-01-07T08:00:00+03:00');
 
 export type TestEnv = Awaited<ReturnType<typeof createTestEnv>>;
 
-export async function createTestEnv() {
+export async function createTestEnv(options: { rateLimit?: boolean } = {}) {
   const { db, pool } = createDatabase(inject('databaseUrl'));
   const clock = { now: new Date(START_TIME) };
   const queue = new MemoryQueue();
@@ -24,7 +24,7 @@ export async function createTestEnv() {
     now: () => clock.now,
     appUrl: 'http://app.test',
   };
-  const app = await buildApp(ctx, { rateLimit: false });
+  const app = await buildApp(ctx, { rateLimit: options.rateLimit ?? false });
   await app.ready();
 
   return {

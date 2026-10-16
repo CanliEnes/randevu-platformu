@@ -94,7 +94,7 @@ export function registerBusinesses(app: FastifyInstance, ctx: AppContext) {
       SELECT b.id, b.name, b.slug, b.category, b.description, b.address,
              round(avg(r.rating), 1)  AS rating,
              count(r.id)              AS "reviewCount",
-             (SELECT min(s.price_cents) FROM services s WHERE s.business_id = b.id AND s.active) AS "minPriceCents"
+             (SELECT min(s.price_cents) FROM services s WHERE s.business_id = b.id AND s.active AND s.price_cents > 0) AS "minPriceCents"
       FROM businesses b
       LEFT JOIN reviews r ON r.business_id = b.id
       WHERE ${q ? sql`(b.name ILIKE ${likePattern(q)} OR b.category ILIKE ${likePattern(q)})` : sql`TRUE`}

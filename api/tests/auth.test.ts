@@ -17,7 +17,7 @@ describe('authentication', () => {
     expect(me.body.user.fullName).toBe('Ayşe Yılmaz');
 
     expect((await client.post('/api/auth/logout')).status).toBe(204);
-    expect((await client.get('/api/auth/me')).status).toBe(401);
+    expect((await client.get('/api/auth/me')).body.user).toBeNull();
   });
 
   it('stores only a hash of the session token and an argon2 hash of the password', async () => {
@@ -52,14 +52,15 @@ describe('authentication', () => {
     const client = env.client();
     const res = await client.post('/api/auth/login', { email: 'login@test.dev', password: 'gizli-sifre-123' });
     expect(res.status).toBe(200);
-    expect((await client.get('/api/auth/me')).status).toBe(200);
+    expect((await client.get('/api/auth/me')).body.user.email).toBe('login@test.dev');
   });
 
   it('expires sessions after 30 days', async () => {
     const client = env.client();
     await client.register('old@test.dev');
     env.clock.now = new Date(env.clock.now.getTime() + 31 * 86_400_000);
-    expect((await client.get('/api/auth/me')).status).toBe(401);
+    expect((await client.get('/api/auth/me')).body.user).toBeNull();
+    expect((await client.get('/api/me/appointments')).status).toBe(401);
   });
 
   it('validates input and lists every problem', async () => {
@@ -67,6 +68,20 @@ describe('authentication', () => {
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
     expect(res.body.error.details.map((d: { path: string }) => d.path).sort()).toEqual(['email', 'fullName', 'password']);
+  });
+
+  it('limits login attempts to 10 per minute', async () => {
+    const limited = await createTestEnv({ rateLimit: true });
+    try {
+      const statuses = [];
+      for (let i = 0; i < 11; i++) {
+        statuses.push((await limited.client().post('/api/auth/login', { email: 'x@test.dev', password: 'yanlis' })).status);
+      }
+      expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
+      expect(statuses[10]).toBe(429);
+    } finally {
+      await limited.close();
+    }
   });
 
   it('only accepts JSON bodies', async () => {

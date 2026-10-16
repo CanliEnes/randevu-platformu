@@ -107,9 +107,10 @@ export function registerAuth(app: FastifyInstance, ctx: AppContext, opts: { rate
     return reply.status(204).send();
   });
 
-  // Who am I, and which businesses can I manage?
+  // Who am I, and which businesses can I manage? (Not signed in is a normal answer, not an error.)
   app.get('/api/auth/me', async (request) => {
-    const user = requireUser(request);
+    const user = request.user;
+    if (!user) return { user: null, memberships: [] };
     const owned = await db
       .selectFrom('businesses')
       .select(['id', 'name', 'slug'])

@@ -11,6 +11,10 @@ export type Db = Kysely<Database>;
 
 export function createDatabase(connectionString: string) {
   const pool = new pg.Pool({ connectionString, max: 10 });
+  // An idle connection can be dropped by the server (restart, network). Without this
+  // listener that would be an unhandled 'error' event and crash the whole process;
+  // the pool simply opens a new connection on the next query.
+  pool.on('error', (error) => console.error('[pg] idle client error:', error.message));
   const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
   return { db, pool };
 }

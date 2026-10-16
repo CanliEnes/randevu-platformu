@@ -3,8 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "setup": "node src/scripts/setup.ts",
     "db": "node src/scripts/dev-db.ts",
-    "dev": "node --watch src/index.ts",
+    "dev": "node --watch-path=src src/index.ts",
     "migrate": "node src/scripts/migrate.ts",
     "seed": "node src/scripts/seed.ts",
     "start": "node src/index.ts",

@@ -7,6 +7,7 @@
     "web"
   ],
   "scripts": {
+    "setup": "npm run setup -w api",
     "dev": "concurrently -k -n db,api,web -c blue,green,magenta \"npm run db -w api\" \"npm run dev -w api\" \"npm run dev -w web\"",
     "db": "npm run db -w api",
     "seed": "npm run seed -w api",

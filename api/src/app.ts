@@ -43,7 +43,10 @@ export async function buildApp(ctx: AppContext, options: AppOptions = {}) {
     if (error instanceof AppError) {
       return reply.status(error.status).send({ error: { code: error.code, message: error.message, details: error.details } });
     }
-    // Errors raised by Fastify itself (bad JSON, 415, 429 ...) already carry a 4xx status.
+    if (error.statusCode === 429) {
+      return reply.status(429).send({ error: { code: 'RATE_LIMITED', message: 'Çok fazla deneme yaptınız. Lütfen bir dakika sonra tekrar deneyin.' } });
+    }
+    // Errors raised by Fastify itself (bad JSON, 415 ...) already carry a 4xx status.
     if (error.statusCode && error.statusCode < 500) {
       return reply.status(error.statusCode).send({ error: { code: error.code ?? 'BAD_REQUEST', message: error.message } });
     }
@@ -63,7 +66,8 @@ export async function buildApp(ctx: AppContext, options: AppOptions = {}) {
 
   const webDist = options.webDist;
   if (webDist && existsSync(webDist)) {
-    await app.register(fastifyStatic, { root: webDist, wildcard: false });
+    // Files are looked up on every request, so a rebuilt web/dist is served without a restart.
+    await app.register(fastifyStatic, { root: webDist });
   }
   app.setNotFoundHandler((request, reply) => {
     // Unknown /api/* paths are real 404s; every other path belongs to the React router.
