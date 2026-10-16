@@ -1,121 +1,124 @@
-# Sıradaki — multi-business appointment booking
+# Sıradaki — çok işletmeli online randevu platformu
 
-A full-stack booking platform for salons, dietitians, tattoo studios and other appointment-based businesses.
-Customers see real free time slots and book in three clicks; owners manage staff, working hours and time off,
-watch their calendar update live and read statistics about their business.
+Kuaför, diyetisyen, dövme stüdyosu gibi randevuyla çalışan işletmeler için uçtan uca bir web uygulaması.
+Müşteri gerçek boş saatleri görür ve üç tıkla randevu alır. İşletme sahibi çalışanlarını, çalışma saatlerini
+ve izinleri yönetir, takvimini canlı izler ve işletmesiyle ilgili istatistikleri görür.
 
-[Türkçe README](README.tr.md)
+[English README](README.en.md)
 
-![Home page](docs/screenshots/home.png)
+![Ana sayfa](docs/screenshots/home.png)
 
-| Booking | Live calendar | Statistics |
+| Randevu alma | Canlı takvim | İstatistikler |
 |---|---|---|
-| ![Booking](docs/screenshots/booking.png) | ![Calendar](docs/screenshots/calendar.png) | ![Statistics](docs/screenshots/stats.png) |
+| ![Randevu alma](docs/screenshots/booking.png) | ![Canlı takvim](docs/screenshots/calendar.png) | ![İstatistikler](docs/screenshots/stats.png) |
 
-## What makes it interesting
+## Öne çıkanlar
 
-**Double booking is impossible, not just unlikely.** Two customers clicking the same slot at the same
-millisecond both pass any "is it free?" check in application code. Here the database itself refuses the
-second row with a PostgreSQL *exclusion constraint* on a time range:
+**Çift randevu "düşük ihtimal" değil, imkânsız.** Aynı saate aynı milisaniyede tıklayan iki müşteri,
+uygulama kodundaki "bu saat boş mu?" kontrolünü ikisi birden geçer. Burada ikinci kaydı veritabanının
+kendisi, zaman aralığı üzerine kurulmuş bir PostgreSQL *exclusion constraint* (çakışma yasağı) ile reddeder:
 
 ```sql
 CONSTRAINT appointments_staff_no_overlap
   EXCLUDE USING gist (staff_id WITH =, period WITH &&) WHERE (status <> 'cancelled')
 ```
 
-A test fires 10 concurrent booking requests at one slot and asserts that exactly one succeeds
-([`api/tests/booking.test.ts`](api/tests/booking.test.ts)). With "any staff member" selected, a
-rejected insert simply falls through to the next free person.
+Bir test aynı saate 10 eşzamanlı randevu isteği gönderir ve yalnızca birinin başarılı olduğunu doğrular
+([`api/tests/booking.test.ts`](api/tests/booking.test.ts)). "Herhangi bir çalışan" seçildiğinde reddedilen
+kayıt otomatik olarak sıradaki boş çalışana denenir.
 
-**Correct free-slot computation.** Working blocks (lunch break = gap between blocks), time off, existing
-appointments and a 30-minute booking lead time are combined with pure interval arithmetic
-([`api/src/lib/slots.ts`](api/src/lib/slots.ts)), in the business' own time zone, including
-daylight-saving days. Fully unit tested.
+**Doğru boş saat hesabı.** Çalışma blokları (öğle arası = iki blok arasındaki boşluk), izinler, mevcut
+randevular ve "en erken 30 dakika sonrası" kuralı saf aralık aritmetiğiyle birleştirilir
+([`api/src/lib/slots.ts`](api/src/lib/slots.ts)). Hesap işletmenin kendi saat diliminde yapılır ve yaz saati
+geçiş günlerinde de doğrudur. Tamamı birim testleriyle kontrol edilir.
 
-**Live calendar across server instances.** A booking transaction ends with `pg_notify(...)`; PostgreSQL
-delivers it only if the transaction commits. Every API process `LISTEN`s and pushes the event over a
-WebSocket to the owners and staff of that business (staff only receive their own calendar).
+**Birden fazla sunucuda bile canlı takvim.** Randevu işlemi `pg_notify(...)` ile biter; PostgreSQL bu bildirimi
+yalnızca işlem başarıyla kaydedilirse iletir. Her API süreci `LISTEN` ile dinler ve olayı WebSocket üzerinden
+o işletmenin sahiplerine ve çalışanlarına gönderir (çalışanlar yalnızca kendi takvimlerini alır).
 
-**Background jobs that survive restarts.** Confirmation, 24-hours-before reminder and cancellation e-mails
-are queued in PostgreSQL with pg-boss and retried with backoff. Handlers are idempotent (a retried reminder
-is not sent twice; a reminder for a cancelled appointment is skipped). A demo mailbox shows every sent e-mail.
+**Yeniden başlatmaya dayanıklı arka plan işleri.** Onay, 24 saat önce hatırlatma ve iptal e-postaları
+pg-boss ile PostgreSQL'de kuyruğa alınır, hata olursa artan aralıklarla yeniden denenir. İşleyiciler tekrar
+çalışmaya karşı güvenlidir (yeniden denenen hatırlatma iki kez gitmez, iptal edilmiş randevunun hatırlatması
+atlanır). Demo posta kutusunda gönderilen her e-posta görülebilir.
 
-**Security basics done properly.** argon2id password hashes; random session tokens stored only as SHA-256
-hashes; `httpOnly` + `SameSite=Lax` cookies; JSON-only request bodies; rate-limited login; identical errors for
-"unknown e-mail" and "wrong password"; role checks on every endpoint (owner / staff / customer); other
-people's appointments answer `404`, not `403`.
+**Güvenliğin temelleri doğru yapılmış.** argon2id ile şifre özeti; veritabanında yalnızca SHA-256 özeti tutulan
+rastgele oturum anahtarları; `httpOnly` + `SameSite=Lax` çerezler; yalnızca JSON kabul eden istekler; giriş
+denemelerine sınır; "bilinmeyen e-posta" ile "yanlış şifre" için aynı hata; her uç noktada rol kontrolü
+(sahip / çalışan / müşteri); başkasının randevusu sorulduğunda `403` değil `404` yanıtı.
 
-## Features
+## Özellikler
 
-- Public business directory with search, categories, ratings and starting prices
-- Booking flow: service → staff (or "anyone") → day → free time → confirm
-- My appointments: cancel (until 2 h before), review completed visits (1–5 stars)
-- Owner panel: weekly calendar (per staff or overview), services, staff & weekly hours editor,
-  time off, statistics (revenue, cancellation rate, busiest hours/weekdays, per service / per staff), settings
-- Staff panel: own calendar, own time off, mark no-shows
-- Demo mailbox and one-click demo logins
+- Arama, kategori, puan ve başlangıç fiyatıyla herkese açık işletme listesi
+- Randevu akışı: hizmet → çalışan (veya "fark etmez") → gün → boş saat → onay
+- Randevularım: iptal (randevudan 2 saat öncesine kadar), tamamlanan randevuyu 1–5 yıldızla değerlendirme
+- İşletme paneli: haftalık takvim (çalışan bazında veya genel bakış), hizmetler, çalışanlar ve haftalık saat
+  düzenleyici, izinler, istatistikler (ciro, iptal oranı, en yoğun saatler/günler, hizmet ve çalışan bazında),
+  ayarlar
+- Çalışan paneli: kendi takvimi, kendi izinleri, gelmeyen müşteriyi işaretleme
+- Demo posta kutusu ve tek tıkla demo girişleri
 
-## Tech stack
+## Kullanılan teknolojiler
 
-| Layer | Choice |
+| Katman | Seçim |
 |---|---|
-| API | Node.js 24 (runs TypeScript directly), Fastify 5, Zod |
-| Database | PostgreSQL 17, hand-written SQL migrations, Kysely query builder |
-| Jobs / realtime | pg-boss, LISTEN/NOTIFY, @fastify/websocket |
-| Web | React 19, Vite, React Router, TanStack Query, Recharts, Luxon |
-| Tests | Vitest against a real PostgreSQL (54 tests), GitHub Actions |
+| API | Node.js 24 (TypeScript'i doğrudan çalıştırır), Fastify 5, Zod |
+| Veritabanı | PostgreSQL 17, elle yazılmış SQL migration'ları, Kysely sorgu oluşturucu |
+| Arka plan işleri / canlı güncelleme | pg-boss, LISTEN/NOTIFY, @fastify/websocket |
+| Arayüz | React 19, Vite, React Router, TanStack Query, Recharts, Luxon |
+| Testler | Gerçek PostgreSQL üzerinde Vitest (54 test), GitHub Actions |
 
-## Getting started
+## Kurulum
 
-Requirements: **Node.js 24+**. Nothing else — PostgreSQL is downloaded as an npm package and runs inside
-the project folder (`api/.pgdata`), so no installation, admin rights or Docker are needed.
+Gereken tek şey **Node.js 24+**. PostgreSQL npm paketi olarak iner ve proje klasörünün içinde çalışır
+(`api/.pgdata`); ayrı kurulum, yönetici izni veya Docker gerekmez.
 
 ```bash
 npm install
-npm run setup   # one time: creates the local database (random password in api/.env) and demo data
-npm run dev     # database + API (http://localhost:3000) + web app (http://localhost:5173)
+npm run setup   # bir kez: yerel veritabanını (rastgele şifre api/.env içine) ve demo verisini oluşturur
+npm run dev     # veritabanı + API (http://localhost:3000) + arayüz (http://localhost:5173)
 ```
 
-Open http://localhost:5173 and use one of the one-click demo accounts (password `demo12345`):
+http://localhost:5173 adresini açın ve tek tıkla demo hesaplarından biriyle girin (şifre `demo12345`):
 
-| Account | Role |
+| Hesap | Rol |
 |---|---|
-| `musteri@demo.test` | customer with past and upcoming appointments |
-| `isletme@demo.test` | owner of "Makas & Tarak" (3 staff, ~3 months of data) |
-| `calisan@demo.test` | staff member (barber) at "Makas & Tarak" |
+| `musteri@demo.test` | geçmiş ve yaklaşan randevuları olan müşteri |
+| `isletme@demo.test` | "Makas & Tarak" işletmesinin sahibi (3 çalışan, ~3 aylık veri) |
+| `calisan@demo.test` | "Makas & Tarak"ta çalışan (berber) |
 
-Other commands:
+Diğer komutlar:
 
 ```bash
-npm test          # API test suite (starts its own throw-away PostgreSQL)
-npm run typecheck # TypeScript, both packages
-npm run build     # production build of the web app (served by the API from web/dist)
-npm run seed      # reset demo data (the dev database must be running: npm run db)
+npm test          # API testleri (kendi geçici PostgreSQL'ini açar)
+npm run typecheck # iki paket için TypeScript tip kontrolü
+npm run build     # arayüzün üretim derlemesi (API web/dist klasöründen sunar)
+npm run seed      # demo verisini sıfırla (geliştirme veritabanı açık olmalı: npm run db)
 ```
 
-## Project layout
+## Proje yapısı
 
 ```
 api/
-  migrations/001_initial.sql   schema and every database-level rule
+  migrations/001_initial.sql   şema ve veritabanı seviyesindeki tüm kurallar
   src/
-    app.ts                     Fastify setup, error format, static web app
+    app.ts                     Fastify ayarları, hata biçimi, arayüzün sunulması
     modules/                   auth, businesses, availability, appointments, stats, notifications, realtime
-    lib/                       slots (interval math), access (roles), queue, events, errors
-    scripts/                   setup, dev database, migrate, seed
-  tests/                       integration + unit tests
+    lib/                       slots (aralık hesabı), access (roller), queue, events, errors
+    scripts/                   setup, geliştirme veritabanı, migrate, seed
+  tests/                       entegrasyon ve birim testleri
 web/src/
-  pages/                       Home, Business (booking), MyAppointments, Mailbox, Auth, panel/*
-  hooks/useLiveAppointments.ts WebSocket with reconnect
-docs/tasarim.md                design notes (Turkish)
+  pages/                       Home, Business (randevu alma), MyAppointments, Mailbox, Auth, panel/*
+  hooks/useLiveAppointments.ts yeniden bağlanan WebSocket
+docs/tasarim.md                tasarım notları
 ```
 
-## Deploying
+## Yayına alma
 
-The API serves the built React app, so one Node.js service plus one PostgreSQL database is enough.
-Set `DATABASE_URL`, `NODE_ENV=production`, `APP_URL` (and optionally `SMTP_URL`), run `npm ci && npm run build`,
-then `npm start`. Migrations run automatically on start. See [`api/.env.example`](api/.env.example).
+API derlenmiş React uygulamasını da sunduğu için tek bir Node.js servisi ve bir PostgreSQL veritabanı yeterlidir.
+`DATABASE_URL`, `NODE_ENV=production`, `APP_URL` (ve isteğe bağlı `SMTP_URL`) değişkenlerini ayarlayın,
+`npm ci && npm run build` çalıştırın, ardından `npm start` ile başlatın. Migration'lar açılışta otomatik çalışır.
+Ayrıntılar için [`api/.env.example`](api/.env.example) dosyasına bakın.
 
-## License
+## Lisans
 
 MIT
